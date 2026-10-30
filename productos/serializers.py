@@ -1,3 +1,4 @@
+from decimal import Decimal
 
 from rest_framework import serializers
 from .models import Producto, ColorProducto, ImagenProducto
@@ -34,3 +35,19 @@ class ProductoSerializer(serializers.ModelSerializer):
             "imagenes",
             "creado",
         ]
+
+    def validate_nombre(self, value):
+        nombre = value.strip()
+        if not nombre:
+            raise serializers.ValidationError("El nombre no puede estar vacío.")
+        return nombre
+
+    def validate_precio(self, value):
+        if value <= Decimal("0"):
+            raise serializers.ValidationError("El precio debe ser mayor que cero.")
+        return value
+
+    def validate_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError("El stock no puede ser negativo.")
+        return value

@@ -1,5 +1,5 @@
-
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 
 
 class Producto(models.Model):
@@ -18,6 +18,22 @@ class Producto(models.Model):
     destacado = models.BooleanField(default=False)
     activo = models.BooleanField(default=True)
     creado = models.DateTimeField(auto_now_add=True)
+
+    def descontar_stock(self, cantidad):
+        if cantidad <= 0:
+            raise ValidationError("La cantidad a descontar debe ser mayor que cero.")
+
+        with transaction.atomic():
+            producto = Producto.objects.select_for_update().get(pk=self.pk)
+
+            if producto.stock < cantidad:
+                raise ValidationError("No hay stock suficiente para esta operación.")
+
+            producto.stock -= cantidad
+            producto.save(update_fields=["stock"])
+            self.stock = producto.stock
+
+        return self
 
     def __str__(self):
         return self.nombre
