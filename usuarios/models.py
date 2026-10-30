@@ -10,9 +10,10 @@ class Usuario(AbstractUser):
     )
 
     ROLES = [
-        ("cliente", "Cliente"),
-        ("admin", "Administrador"),
-    ]
+    ("admin", "Administrador"),
+    ("cliente", "Cliente"),
+    ("visitante", "Visitante"),
+]
 
     rol = models.CharField(
         max_length=10,
