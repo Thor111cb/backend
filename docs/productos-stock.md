@@ -1,101 +1,274 @@
-# Módulo de productos y stock — Coramanda
+# Módulo de Productos y Stock — Coramanda
 
 ## 1. Objetivo
 
-Implementar la gestión del catálogo de productos de Coramanda mediante Django REST Framework y PostgreSQL, permitiendo consultar, buscar, filtrar y administrar los productos de la tienda.
+El módulo de Productos y Stock se encarga de administrar el catálogo de productos de Coramanda mediante Django y Django REST Framework, utilizando PostgreSQL como sistema de almacenamiento.
 
-## 2. Datos del producto
+Permite consultar productos, obtener sus detalles, realizar búsquedas, aplicar filtros, ordenar resultados y ejecutar operaciones administrativas de creación, modificación y eliminación.
 
-- **Nombre:** obligatorio, con una longitud máxima definida.
-- **Categoría:** Riñoneras, Pilusos, Chuflines o Accesorios.
-- **Precio:** valor decimal positivo.
-- **Descripción:** texto descriptivo del producto.
-- **Colores:** opciones disponibles, cada una con nombre y código hexadecimal.
-- **Imágenes:** una o varias imágenes asociadas al producto.
-- **Stock:** cantidad disponible, igual o mayor que cero.
-- **Destacado:** indica si el producto aparece en las secciones destacadas de la página principal.
+También incorpora un mecanismo para descontar unidades del inventario de manera segura, verificando que exista stock suficiente antes de realizar la operación.
 
-Los tipos de datos, las relaciones y las restricciones definitivas se establecerán al implementar los modelos.
+## 2. Modelos y estructura de datos
 
-## 3. Funcionalidades previstas
+El módulo está compuesto por tres modelos: `Producto`, `ColorProducto` e `ImagenProducto`.
 
-- Listar los productos disponibles.
-- Consultar el detalle de un producto.
-- Crear, modificar y eliminar productos con permisos administrativos.
-- Buscar productos por nombre.
-- Filtrar por categoría y, cuando corresponda, por color.
-- Ordenar por precio y otros campos pertinentes.
-- Paginar los resultados.
-- Consultar los productos destacados.
-- Validar los cambios de stock para evitar cantidades negativas.
+### 2.1. Modelo Producto
 
-## 4. Seguridad y consistencia
+Representa los artículos disponibles en la tienda.
 
-Las operaciones administrativas deberán requerir los permisos correspondientes. Las validaciones se realizarán en el servidor, aunque el frontend también valide los formularios.
+| Campo | Tipo de dato | Descripción |
+|---|---|---|
+| id | Clave primaria automática | Identificador único del producto. |
+| nombre | CharField(150) | Nombre del producto. |
+| categoria | CharField(30) | Categoría del producto, seleccionada entre las opciones permitidas. |
+| precio | DecimalField(10,2) | Precio del producto con dos posiciones decimales. |
+| descripcion | TextField | Descripción del producto. Puede quedar vacía. |
+| stock | PositiveIntegerField | Cantidad de unidades disponibles. Su valor inicial es 0. |
+| destacado | BooleanField | Indica si el producto está destacado. Su valor inicial es False. |
+| activo | BooleanField | Determina si el producto está activo. Su valor inicial es True. |
+| creado | DateTimeField | Fecha y hora de creación, asignadas automáticamente. |
 
-El stock no debe descontarse únicamente desde el módulo de productos: la confirmación de pedidos deberá coordinarse con el módulo de pedidos y utilizar una transacción de base de datos.
+Las categorías permitidas son:
+- Riñoneras.
+- Pilusos.
+- Chuflines.
+- Accesorios.
 
-## 5. Pruebas previstas
+El método `__str__()` devuelve el nombre del producto para facilitar su identificación en Django Admin y otros contextos.
 
-1. Listado de productos.
-2. Consulta de un producto existente.
-3. Búsqueda y filtros.
-4. Ordenamiento y paginación.
-5. Rechazo de precios o cantidades inválidas.
-6. Restricción de operaciones de escritura para usuarios sin permisos administrativos.
-7. Verificación de la consistencia del stock al confirmar pedidos.
+### 2.2. Modelo ColorProducto
 
-## 6. Dependencias de integración
+Permite asociar diferentes colores a un mismo producto.
 
-Antes de crear las relaciones definitivas y ejecutar migraciones, se deben acordar con el equipo los nombres de las aplicaciones y modelos, el modelo de usuario personalizado y la relación entre productos, detalles de pedido y stock.
+| Campo | Tipo de dato | Descripción |
+|---|---|---|
+| id | Clave primaria automática | Identificador del color. |
+| producto | ForeignKey | Relación con el producto al que pertenece. |
+| nombre | CharField(50) | Nombre del color. |
+| hexadecimal | CharField(7) | Código hexadecimal del color. Valor predeterminado: `#000000`. |
 
-## 7. Reglas de validación
+La relación utiliza `related_name="colores"`, lo que permite acceder a los colores de un producto mediante su relación inversa.
 
-- El nombre del producto es obligatorio y no puede superar la longitud máxima establecida en el modelo.
-- El precio debe ser un número decimal mayor que cero.
-- La categoría debe pertenecer a las opciones permitidas: Riñoneras, Pilusos, Chuflines o Accesorios.
-- La cantidad de stock debe ser un número entero igual o mayor que cero.
-- El campo destacado debe admitir un valor booleano.
-- Los colores deben tener un nombre y un código hexadecimal válido.
-- Los productos inexistentes deben devolver una respuesta HTTP 404 al consultar su detalle.
-- Los datos inválidos deben generar una respuesta HTTP 400 con información sobre los errores.
+La eliminación de un producto también elimina sus colores asociados, debido a la configuración `on_delete=models.CASCADE`.
 
-## 8. Permisos y seguridad
+### 2.3. Modelo ImagenProducto
 
-- Los visitantes podrán consultar el catálogo y los detalles de los productos.
-- Solamente los usuarios con permisos administrativos podrán crear, modificar o eliminar productos.
-- La autorización deberá comprobarse en el backend; no alcanza con ocultar botones en la interfaz.
-- Los datos recibidos deberán validarse antes de guardarse en la base de datos.
+Permite asociar imágenes a los productos mediante direcciones URL.
 
-La implementación definitiva de los permisos se coordinará con el módulo de autenticación.
+| Campo | Tipo de dato | Descripción |
+|---|---|---|
+| id | Clave primaria automática | Identificador de la imagen. |
+| producto | ForeignKey | Relación con el producto correspondiente. |
+| imagen | URLField(500) | Dirección URL de la imagen. |
 
-## 9. Búsqueda, filtros y paginación
+La relación utiliza `related_name="imagenes"`. Un producto puede tener varias imágenes asociadas.
 
-- La búsqueda permitirá localizar productos por nombre.
-- Los filtros permitirán consultar productos por categoría y, si el diseño de datos lo permite, por color.
-- El ordenamiento permitirá ordenar los resultados por precio y otros campos acordados.
-- La paginación limitará la cantidad de resultados devueltos por página.
-- Los parámetros de búsqueda y filtrado deberán poder combinarse cuando corresponda.
+Al igual que con los colores, la eliminación del producto elimina sus imágenes relacionadas.
 
-## 10. Pruebas previstas
+### 2.4. Relaciones entre modelos
 
-- Crear un producto con datos válidos.
-- Rechazar un producto con nombre vacío.
-- Rechazar un precio negativo o igual a cero.
-- Rechazar una categoría que no esté permitida.
-- Rechazar una cantidad de stock negativa.
-- Consultar la lista y el detalle de los productos.
-- Buscar productos por nombre y filtrarlos por categoría.
-- Comprobar que un usuario sin permisos administrativos no pueda modificar el catálogo.
-- Comprobar que un administrador autorizado pueda crear, modificar y eliminar productos.
-- Verificar que la paginación y el ordenamiento funcionen correctamente.
+La estructura de datos presenta dos relaciones de uno a muchos:
 
-Las pruebas automatizadas se implementarán con las herramientas de Django REST Framework una vez definidos los modelos y los permisos definitivos.
+- Un producto puede tener varios colores.
+- Un producto puede tener varias imágenes.
+- Cada color y cada imagen pertenecen a un único producto.
 
-## 11. Dependencias de integración
+Estas relaciones se implementan mediante claves foráneas (`ForeignKey`).
 
-- Confirmar con el equipo la estructura definitiva del modelo de usuario y sus permisos.
-- Coordinar con el módulo de pedidos la forma de consultar productos y actualizar el stock.
-- Acordar cómo se almacenarán las imágenes y los colores.
-- Integrar las rutas del módulo en el enrutamiento general de la API.
-- Mantener las migraciones y los cambios de configuración coordinados con el resto del equipo.
+## 3. Funcionalidades implementadas
+
+El módulo utiliza `ModelViewSet` de Django REST Framework para proporcionar las operaciones habituales de administración de productos.
+
+Las funcionalidades implementadas son:
+
+- Listado de productos activos.
+- Consulta individual de productos.
+- Creación de productos.
+- Modificación completa o parcial.
+- Eliminación de productos.
+- Búsqueda por nombre y descripción.
+- Filtrado por categoría y estado destacado.
+- Ordenamiento por precio, nombre y fecha de creación.
+- Control de acceso según el rol del usuario.
+- Descuento seguro de unidades del stock.
+
+Las operaciones de escritura están restringidas a usuarios con permisos administrativos.
+
+## 4. Endpoints de la API
+
+La aplicación registra las rutas del módulo mediante `DefaultRouter`, asociando el recurso `productos` con `ProductoViewSet`.
+
+Base utilizada en el entorno local:
+
+`http://127.0.0.1:8000/api/`
+
+| Método | Ruta | Función | Autorización |
+|---|---|---|---|
+| GET | `/api/productos/` | Listar productos activos. | Pública. |
+| GET | `/api/productos/{id}/` | Consultar el detalle de un producto. | Pública. |
+| POST | `/api/productos/` | Crear un producto. | Administrador. |
+| PUT | `/api/productos/{id}/` | Reemplazar los datos de un producto. | Administrador. |
+| PATCH | `/api/productos/{id}/` | Modificar parcialmente un producto. | Administrador. |
+| DELETE | `/api/productos/{id}/` | Eliminar un producto. | Administrador. |
+
+### 4.1. Parámetros de consulta
+
+El listado admite los siguientes parámetros:
+
+| Parámetro | Función | Ejemplo |
+|---|---|---|
+| categoria | Filtra por categoría. | `?categoria=Riñoneras` |
+| destacado | Filtra por estado destacado. | `?destacado=true` |
+| search | Busca coincidencias en nombre o descripción. | `?search=piluso` |
+| ordering | Ordena los resultados. | `?ordering=precio` |
+
+También se pueden utilizar los siguientes criterios de ordenamiento:
+
+- `precio`: precio ascendente.
+- `-precio`: precio descendente.
+- `nombre`: orden alfabético por nombre.
+- `creado`: orden por fecha de creación.
+
+La configuración de paginación depende de los ajustes generales de Django REST Framework.
+
+### 4.2. Estructura de los datos
+
+El serializador `ProductoSerializer` devuelve los siguientes campos:
+
+- `id`
+- `nombre`
+- `categoria`
+- `precio`
+- `descripcion`
+- `stock`
+- `destacado`
+- `activo`
+- `colores`
+- `imagenes`
+- `creado`
+
+Los colores y las imágenes se incluyen como estructuras anidadas mediante sus respectivos serializadores.
+
+Estos campos relacionados están configurados como `read_only=True`. Por lo tanto, se pueden consultar desde la API, pero no crear ni modificar mediante el envío de datos anidados al serializador de productos.
+
+## 5. Validaciones de datos
+
+Las validaciones se implementan en `ProductoSerializer`, complementando las restricciones definidas en los modelos.
+
+| Campo | Validación aplicada |
+|---|---|
+| nombre | Se eliminan espacios al principio y al final. No se permite que quede vacío. |
+| precio | Debe ser mayor que cero. |
+| stock | No puede ser negativo. |
+| categoria | Debe pertenecer a las opciones definidas en el modelo. |
+
+Cuando los datos enviados no cumplen las validaciones, Django REST Framework devuelve una respuesta HTTP `400 Bad Request`, acompañada de información sobre el campo que contiene el error.
+
+Por ejemplo, un producto con precio igual a cero es rechazado por el serializador.
+
+## 6. Seguridad y permisos
+
+El control de acceso se realiza en el backend mediante el método `get_permissions()` de `ProductoViewSet` y la clase `IsAdministrador`.
+
+Las operaciones se dividen de la siguiente manera:
+
+**Consultas públicas:**
+- Listar productos.
+- Consultar detalles.
+
+**Operaciones administrativas:**
+- Crear productos.
+- Modificar productos.
+- Eliminar productos.
+
+La autorización administrativa se basa en el rol del usuario. El método `get_queryset()` comprueba si el usuario está autenticado y si su atributo `rol` tiene el valor `admin`.
+
+Los usuarios que no cumplen esta condición solamente reciben los productos cuyo campo `activo` es verdadero. Los administradores pueden consultar tanto productos activos como inactivos.
+
+## 7. Gestión y consistencia del stock
+
+El modelo `Producto` incorpora el método `descontar_stock(cantidad)`, destinado a reducir la cantidad disponible de un producto.
+
+El procedimiento realiza las siguientes comprobaciones:
+
+1. Verifica que la cantidad solicitada sea mayor que cero.
+2. Inicia una transacción mediante `transaction.atomic()`.
+3. Obtiene el producto utilizando `select_for_update()`, bloqueando temporalmente el registro durante la operación.
+4. Comprueba que exista stock suficiente.
+5. Descuenta las unidades solicitadas.
+6. Guarda únicamente el campo `stock`.
+
+Si la cantidad solicitada es igual o inferior a cero, se genera un error de validación.
+
+Si no existe stock suficiente, la operación se rechaza y el inventario permanece sin modificaciones.
+
+La utilización de transacciones y bloqueo del registro ayuda a evitar inconsistencias cuando varias operaciones intentan modificar simultáneamente el inventario.
+
+**Importante:** `descontar_stock()` es un método del modelo y no un endpoint independiente. Su integración con la confirmación de pedidos debe realizarse desde el módulo responsable de los pedidos.
+
+## 8. Administración mediante Django Admin
+
+Los modelos `Producto`, `ColorProducto` e `ImagenProducto` están registrados en el panel administrativo de Django.
+
+La configuración de `ProductoAdmin` permite:
+
+- Visualizar el identificador, nombre, categoría, precio, stock, estado destacado y estado activo.
+- Filtrar productos por categoría, destacado y activo.
+- Buscar productos por nombre y descripción.
+- Administrar colores e imágenes asociados directamente desde la ficha de cada producto mediante formularios integrados (`TabularInline`).
+
+Además, los modelos de colores e imágenes también están registrados individualmente en el panel administrativo.
+
+Esta configuración facilita la administración del catálogo sin necesidad de realizar todas las operaciones mediante solicitudes HTTP.
+
+## 9. Pruebas automatizadas
+
+El módulo cuenta con pruebas automatizadas desarrolladas utilizando `APITestCase` de Django REST Framework.
+
+Las pruebas preparan usuarios de tipo administrador y cliente, además de productos activos e inactivos para verificar los distintos comportamientos.
+
+Se implementaron 14 pruebas:
+
+| Prueba | Comportamiento verificado |
+|---|---|
+| `test_listado_publico_solo_activos` | El listado público muestra únicamente productos activos. |
+| `test_detalle_existente` | Permite consultar un producto existente. |
+| `test_detalle_inexistente_404` | Devuelve HTTP 404 cuando el producto no existe. |
+| `test_filtro_por_categoria` | Filtra correctamente por categoría. |
+| `test_busqueda_por_nombre` | Permite buscar productos por nombre. |
+| `test_ordenamiento_por_precio` | Ordena los productos por precio. |
+| `test_anonimo_no_puede_crear` | Impide la creación por parte de usuarios anónimos. |
+| `test_cliente_no_puede_crear` | Impide la creación por parte de usuarios con rol cliente. |
+| `test_admin_puede_crear` | Permite crear productos a un administrador. |
+| `test_admin_puede_modificar` | Permite modificar productos a un administrador. |
+| `test_admin_puede_eliminar` | Permite eliminar productos a un administrador. |
+| `test_precio_invalido_400` | Rechaza productos con precio igual a cero. |
+| `test_descontar_stock_ok` | Comprueba el descuento correcto de unidades. |
+| `test_descontar_stock_insuficiente` | Impide descontar más unidades que las disponibles. |
+
+Estas pruebas permiten comprobar las operaciones principales, las validaciones, los permisos y la consistencia del inventario.
+
+## 10. Integración con los demás módulos
+
+El módulo de Productos y Stock forma parte del backend general de Coramanda.
+
+Sus principales puntos de integración son:
+
+- **Usuarios:** utiliza el rol del usuario autenticado para determinar los permisos administrativos.
+- **Pedidos:** proporciona los productos y el método de descuento de stock que debe utilizarse durante la confirmación de una compra.
+- **Base de datos:** almacena los productos, colores e imágenes mediante los modelos de Django.
+
+La confirmación de pedidos debe coordinarse con el módulo de Pedidos para garantizar que el descuento de inventario se realice de forma consistente.
+
+## 11. Consideraciones técnicas
+
+- Los productos se administran mediante Django ORM y Django REST Framework.
+- Las rutas se generan utilizando `DefaultRouter`.
+- Los filtros se implementan con `DjangoFilterBackend`.
+- La búsqueda utiliza `SearchFilter`.
+- El ordenamiento utiliza `OrderingFilter`.
+- Los permisos administrativos se aplican mediante `IsAdministrador`.
+- Los colores y las imágenes se representan mediante relaciones de clave foránea.
+- La modificación del stock utiliza transacciones y bloqueo de registros.
+
+Esta documentación describe el comportamiento respaldado por la implementación actual del módulo. Las integraciones con autenticación JWT, confirmación de pedidos y configuración general de la base de datos deben documentarse conjuntamente con los módulos responsables.
