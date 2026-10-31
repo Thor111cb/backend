@@ -1,6 +1,5 @@
-
 from django.contrib import admin
-from .models import Producto, ColorProducto, ImagenProducto
+from .models import Producto, ColorProducto, ImagenProducto, Categoria
 
 
 class ColorProductoInline(admin.TabularInline):
@@ -13,11 +12,17 @@ class ImagenProductoInline(admin.TabularInline):
     extra = 1
 
 
+@admin.register(Categoria)
+class CategoriaAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "descripcion")
+    search_fields = ("nombre",)
+
+
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = ("id", "nombre", "categoria", "precio", "stock", "destacado", "activo")
     list_filter = ("categoria", "destacado", "activo")
-    search_fields = ("nombre", "descripcion")
+    search_fields = ("nombre", "descripcion", "categoria__nombre")
     inlines = [ColorProductoInline, ImagenProductoInline]
 
 

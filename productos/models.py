@@ -2,16 +2,26 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 
-class Producto(models.Model):
-    CATEGORIAS = [
-        ("Riñoneras", "Riñoneras"),
-        ("Pilusos", "Pilusos"),
-        ("Chuflines", "Chuflines"),
-        ("Accesorios", "Accesorios"),
-    ]
+class Categoria(models.Model):
+    nombre = models.CharField(max_length=80, unique=True)
+    descripcion = models.TextField(blank=True)
 
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "categoría"
+        verbose_name_plural = "categorías"
+
+    def __str__(self):
+        return self.nombre
+
+
+class Producto(models.Model):
     nombre = models.CharField(max_length=150)
-    categoria = models.CharField(max_length=30, choices=CATEGORIAS)
+    categoria = models.ForeignKey(
+        Categoria,
+        on_delete=models.PROTECT,
+        related_name="productos",
+    )
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     descripcion = models.TextField(blank=True)
     stock = models.PositiveIntegerField(default=0)

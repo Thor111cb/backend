@@ -1,5 +1,5 @@
-
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -42,11 +42,26 @@ class DetallePedido(models.Model):
         on_delete=models.PROTECT,
         related_name="detalles_pedido",
     )
+    color = models.ForeignKey(
+        "productos.ColorProducto",
+        on_delete=models.PROTECT,
+        related_name="detalles_pedido",
+        null=True,
+        blank=True,
+    )
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(
         max_digits=10,
         decimal_places=2,
     )
+
+    def clean(self):
+        if not self.producto_id:
+            return
+        if self.color_id is None and self.producto.colores.exists():
+            raise ValidationError({"color": "Este producto tiene colores, elegí uno."})
+        if self.color_id and self.color.producto_id != self.producto_id:
+            raise ValidationError({"color": "El color no pertenece a este producto."})
 
     @property
     def subtotal(self):
