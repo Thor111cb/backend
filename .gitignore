@@ -6,3 +6,5 @@ __pycache__/
 staticfiles/
 media/
 .pytest_cache/
+schema.yml
+*.pdf
