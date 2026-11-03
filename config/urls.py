@@ -8,11 +8,17 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+
     path("api/", include("productos.urls")),
     path("api/", include("pedidos.urls")),
+
     path("api/usuarios/", include("usuarios.urls")),
+
+    # Autenticación JWT
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+
+    # Documentación Swagger
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
