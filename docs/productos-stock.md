@@ -10,9 +10,21 @@ También incorpora un mecanismo para descontar unidades del inventario de manera
 
 ## 2. Modelos y estructura de datos
 
-El módulo está compuesto por tres modelos: `Producto`, `ColorProducto` e `ImagenProducto`.
+El módulo está compuesto por cuatro modelos: `Categoria`, `Producto`, `ColorProducto` e `ImagenProducto`.
 
-### 2.1. Modelo Producto
+### 2.1. Modelo Categoria
+
+Representa las categorías utilizadas para clasificar los productos.
+
+| Campo | Tipo de dato | Descripción |
+|---|---|---|
+| id | Clave primaria automática | Identificador único de la categoría. |
+| nombre | CharField(80) | Nombre de la categoría. Es único. |
+| descripcion | TextField | Descripción opcional de la categoría. |
+
+Las categorías utilizadas en los datos iniciales son Riñoneras, Pilusos, Chuflines y Accesorios.
+
+### 2.2. Modelo Producto
 
 Representa los artículos disponibles en la tienda.
 
@@ -20,23 +32,17 @@ Representa los artículos disponibles en la tienda.
 |---|---|---|
 | id | Clave primaria automática | Identificador único del producto. |
 | nombre | CharField(150) | Nombre del producto. |
-| categoria | CharField(30) | Categoría del producto, seleccionada entre las opciones permitidas. |
+| categoria | ForeignKey | Relación con el modelo Categoria. |
 | precio | DecimalField(10,2) | Precio del producto con dos posiciones decimales. |
-| descripcion | TextField | Descripción del producto. Puede quedar vacía. |
-| stock | PositiveIntegerField | Cantidad de unidades disponibles. Su valor inicial es 0. |
-| destacado | BooleanField | Indica si el producto está destacado. Su valor inicial es False. |
-| activo | BooleanField | Determina si el producto está activo. Su valor inicial es True. |
+| descripcion | TextField | Descripción opcional del producto. |
+| stock | PositiveIntegerField | Cantidad de unidades disponibles. |
+| destacado | BooleanField | Indica si el producto está destacado. |
+| activo | BooleanField | Determina si el producto está activo. |
 | creado | DateTimeField | Fecha y hora de creación, asignadas automáticamente. |
 
-Las categorías permitidas son:
-- Riñoneras.
-- Pilusos.
-- Chuflines.
-- Accesorios.
+La relación con `Categoria` utiliza `on_delete=models.PROTECT`, por lo que no se puede eliminar una categoría mientras tenga productos asociados.
 
-El método `__str__()` devuelve el nombre del producto para facilitar su identificación en Django Admin y otros contextos.
-
-### 2.2. Modelo ColorProducto
+### 2.3. Modelo ColorProducto
 
 Permite asociar diferentes colores a un mismo producto.
 
@@ -45,13 +51,11 @@ Permite asociar diferentes colores a un mismo producto.
 | id | Clave primaria automática | Identificador del color. |
 | producto | ForeignKey | Relación con el producto al que pertenece. |
 | nombre | CharField(50) | Nombre del color. |
-| hexadecimal | CharField(7) | Código hexadecimal del color. Valor predeterminado: `#000000`. |
+| hexadecimal | CharField(7) | Código hexadecimal del color. |
 
-La relación utiliza `related_name="colores"`, lo que permite acceder a los colores de un producto mediante su relación inversa.
+La relación utiliza `related_name="colores"` y `on_delete=models.CASCADE`.
 
-La eliminación de un producto también elimina sus colores asociados, debido a la configuración `on_delete=models.CASCADE`.
-
-### 2.3. Modelo ImagenProducto
+### 2.4. Modelo ImagenProducto
 
 Permite asociar imágenes a los productos mediante direcciones URL.
 
@@ -61,14 +65,14 @@ Permite asociar imágenes a los productos mediante direcciones URL.
 | producto | ForeignKey | Relación con el producto correspondiente. |
 | imagen | URLField(500) | Dirección URL de la imagen. |
 
-La relación utiliza `related_name="imagenes"`. Un producto puede tener varias imágenes asociadas.
+La relación utiliza `related_name="imagenes"` y `on_delete=models.CASCADE`.
 
-Al igual que con los colores, la eliminación del producto elimina sus imágenes relacionadas.
+### 2.5. Relaciones entre modelos
 
-### 2.4. Relaciones entre modelos
+La estructura presenta las siguientes relaciones:
 
-La estructura de datos presenta dos relaciones de uno a muchos:
-
+- Una categoría puede tener varios productos.
+- Cada producto pertenece a una única categoría.
 - Un producto puede tener varios colores.
 - Un producto puede tener varias imágenes.
 - Cada color y cada imagen pertenecen a un único producto.
@@ -117,7 +121,7 @@ El listado admite los siguientes parámetros:
 
 | Parámetro | Función | Ejemplo |
 |---|---|---|
-| categoria | Filtra por categoría. | `?categoria=Riñoneras` |
+| categoria | Filtra por el identificador de la categoría. | `?categoria=1` |
 | destacado | Filtra por estado destacado. | `?destacado=true` |
 | search | Busca coincidencias en nombre o descripción. | `?search=piluso` |
 | ordering | Ordena los resultados. | `?ordering=precio` |
@@ -160,7 +164,7 @@ Las validaciones se implementan en `ProductoSerializer`, complementando las rest
 | nombre | Se eliminan espacios al principio y al final. No se permite que quede vacío. |
 | precio | Debe ser mayor que cero. |
 | stock | No puede ser negativo. |
-| categoria | Debe pertenecer a las opciones definidas en el modelo. |
+| categoria | Debe corresponder a una categoría existente, identificada mediante su clave primaria. |
 
 Cuando los datos enviados no cumplen las validaciones, Django REST Framework devuelve una respuesta HTTP `400 Bad Request`, acompañada de información sobre el campo que contiene el error.
 
