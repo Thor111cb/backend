@@ -1,13 +1,11 @@
 from rest_framework.permissions import BasePermission
+from usuarios.permissions import es_admin
 
 
 class IsAdministrador(BasePermission):
-    """Permite el acceso solo a usuarios autenticados con rol admin."""
+    """Permite el acceso solo a usuarios administradores."""
+
+    message = "Solo un administrador puede realizar esta acción."
 
     def has_permission(self, request, view):
-        user = request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and getattr(user, "rol", None) == "admin"
-        )
+        return es_admin(request.user)
