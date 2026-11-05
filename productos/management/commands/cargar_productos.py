@@ -2,7 +2,9 @@
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from productos.models import Producto, ColorProducto
+from django.db import transaction
+
+from productos.models import Categoria, Producto, ColorProducto
 
 
 PRODUCTOS = [
@@ -102,33 +104,48 @@ PRODUCTOS = [
 class Command(BaseCommand):
     help = "Carga 10 productos de prueba para Coramanda."
 
+    @transaction.atomic
     def handle(self, *args, **options):
-        creados = 0
-        existentes = 0
+        productos_creados = 0
+        productos_existentes = 0
+        colores_creados = 0
 
         for datos in PRODUCTOS:
-            colores = datos.pop("colores")
+            categoria, _ = Categoria.objects.get_or_create(
+                nombre=datos["categoria"]
+            )
+
             producto, creado = Producto.objects.get_or_create(
                 nombre=datos["nombre"],
-                defaults=datos,
+                defaults={
+                    "categoria": categoria,
+                    "precio": datos["precio"],
+                    "descripcion": datos["descripcion"],
+                    "stock": datos["stock"],
+                    "destacado": datos["destacado"],
+                },
             )
 
             if creado:
-                creados += 1
-                for nombre, hexadecimal in colores:
-                    ColorProducto.objects.get_or_create(
-                        producto=producto,
-                        nombre=nombre,
-                        defaults={"hexadecimal": hexadecimal},
-                    )
+                productos_creados += 1
             else:
-                existentes += 1
+                productos_existentes += 1
 
-            datos["colores"] = colores
+            for nombre, hexadecimal in datos["colores"]:
+                _, color_creado = ColorProducto.objects.get_or_create(
+                    producto=producto,
+                    nombre=nombre,
+                    defaults={"hexadecimal": hexadecimal},
+                )
+
+                if color_creado:
+                    colores_creados += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Carga finalizada. Productos creados: {creados}. "
-                f"Ya existentes: {existentes}."
+                f"Carga finalizada. "
+                f"Productos creados: {productos_creados}. "
+                f"Ya existentes: {productos_existentes}. "
+                f"Colores creados: {colores_creados}."
             )
         )
