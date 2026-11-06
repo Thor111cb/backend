@@ -15,6 +15,13 @@ class BasePedidosTest(APITestCase):
     def setUp(self):
         self.cliente = User.objects.create_user('ana', 'ana@test.com', 'Clave1234!')
         self.otro = User.objects.create_user('beto', 'beto@test.com', 'Clave1234!')
+        self.visitante = User.objects.create_user(
+            'visitante',
+            'visitante@test.com',
+            'Clave1234!',
+            rol='visitante'
+        )
+
         self.admin = User.objects.create_user('admin', 'admin@test.com', 'Clave1234!', is_staff=True)
         categoria = Categoria.objects.create(nombre='Bazar')
         self.producto = Producto.objects.create(
@@ -39,7 +46,26 @@ class PedidoTests(BasePedidosTest):
     def test_visitante_no_puede_crear_pedido(self):
         r = self.client.post('/api/pedidos/', {}, format='json')
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_visitante_autenticado_no_puede_crear_pedido(self):
+        self.client.force_authenticate(self.visitante)
 
+        r = self.client.post('/api/pedidos/', {
+            'direccion_envio': 'Belgrano 123',
+            'detalles': [
+                {'producto': self.producto.id, 'cantidad': 1}
+            ],
+        }, format='json')
+
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_visitante_autenticado_no_puede_listar_pedidos(self):
+        self.client.force_authenticate(self.visitante)
+
+        r = self.client.get('/api/pedidos/')
+
+
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
     def test_pedido_sin_productos_es_rechazado(self):
         self.client.force_authenticate(self.cliente)
         r = self.client.post('/api/pedidos/', {'direccion_envio': 'Belgrano 123', 'detalles': []}, format='json')

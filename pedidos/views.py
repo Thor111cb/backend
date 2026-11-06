@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Mensaje, Pedido
-from .permissions import EsAdministrador, EsDuenioOAdmin, es_admin
+from .permissions import EsAdministrador, EsClienteOAdmin, EsDuenioOAdmin, es_admin
 from .serializers import CambiarEstadoSerializer, MensajeSerializer, PedidoSerializer
 from .services import cancelar_pedido, confirmar_pedido
 
@@ -18,7 +18,7 @@ class PedidoViewSet(
 ):
 
     serializer_class = PedidoSerializer
-    permission_classes = [IsAuthenticated, EsDuenioOAdmin]
+    permission_classes = [IsAuthenticated, EsClienteOAdmin, EsDuenioOAdmin]
 
     def get_queryset(self):
         # Swagger (drf-spectacular) genera la doc sin usuario real.
