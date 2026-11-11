@@ -177,3 +177,59 @@ class ContactoTests(BasePedidosTest):
         self.assertEqual(self.client.get('/api/contacto/').status_code, status.HTTP_403_FORBIDDEN)
         self.client.force_authenticate(self.admin)
         self.assertEqual(self.client.get('/api/contacto/').status_code, status.HTTP_200_OK)
+    
+    def test_admin_puede_marcar_mensaje_como_leido(self):
+        self.client.post('/api/contacto/', self.datos_ok, format='json')
+        mensaje = Mensaje.objects.get()
+
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(
+            f'/api/contacto/{mensaje.id}/',
+            {'leido': True},
+            format='json',
+        )
+
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        mensaje.refresh_from_db()
+        self.assertTrue(mensaje.leido)
+
+    def test_valor_invalido_de_leido_es_rechazado(self):
+        self.client.post('/api/contacto/', self.datos_ok, format='json')
+        mensaje = Mensaje.objects.get()
+
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(
+            f'/api/contacto/{mensaje.id}/',
+            {'leido': 'cualquier-cosa'},
+            format='json',
+        )
+
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        mensaje.refresh_from_db()
+        self.assertFalse(mensaje.leido)
+
+    def test_patch_vacio_de_mensaje_es_rechazado(self):
+        self.client.post('/api/contacto/', self.datos_ok, format='json')
+        mensaje = Mensaje.objects.get()
+
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(
+            f'/api/contacto/{mensaje.id}/',
+            {},
+            format='json',
+        )
+
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cliente_no_puede_modificar_mensaje(self):
+        self.client.post('/api/contacto/', self.datos_ok, format='json')
+        mensaje = Mensaje.objects.get()
+
+        self.client.force_authenticate(self.cliente)
+        r = self.client.patch(
+            f'/api/contacto/{mensaje.id}/',
+            {'leido': True},
+            format='json',
+        )
+
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)

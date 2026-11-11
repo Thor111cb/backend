@@ -1,5 +1,5 @@
 from drf_spectacular.utils import extend_schema
-from rest_framework import mixins, status, viewsets
+from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from .models import Mensaje, Pedido
 from .permissions import EsAdministrador, EsClienteOAdmin, EsDuenioOAdmin, es_admin
 from .serializers import CambiarEstadoSerializer, MensajeSerializer, PedidoSerializer
-from .services import cancelar_pedido, confirmar_pedido
+from .services import cambiar_estado_pedido
 
 
 class PedidoViewSet(
@@ -39,31 +39,39 @@ class PedidoViewSet(
             qs = qs.filter(estado=estado.upper())
         return qs
 
-    @extend_schema(request=CambiarEstadoSerializer, responses=PedidoSerializer)
-    @action(detail=True, methods=['patch'], url_path='cambiar-estado')
-    def cambiar_estado(self, request, pk=None):
-        pedido = self.get_object()  # ya filtra por dueño (404 si es de otro)
-        serializer = CambiarEstadoSerializer(data=request.data, context={'pedido': pedido})
-        serializer.is_valid(raise_exception=True)
-        nuevo = serializer.validated_data['estado']
+@extend_schema(request=CambiarEstadoSerializer, responses=PedidoSerializer)
+@action(detail=True, methods=['patch'], url_path='cambiar-estado')
+def cambiar_estado(self, request, pk=None):
+    pedido = self.get_object()
 
-        # El cliente solo puede cancelar su pedido mientras está PENDIENTE.
-        if not es_admin(request.user):
-            if not (nuevo == Pedido.Estado.CANCELADO and pedido.estado == Pedido.Estado.PENDIENTE):
-                return Response(
-                    {'detail': 'Solo podés cancelar tus pedidos mientras están pendientes.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+    serializer = CambiarEstadoSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    nuevo = serializer.validated_data['estado']
 
-        if nuevo == Pedido.Estado.CONFIRMADO:
-            confirmar_pedido(pedido)
-        elif nuevo == Pedido.Estado.CANCELADO:
-            cancelar_pedido(pedido)
-        else:
-            pedido.estado = nuevo
-            pedido.save(update_fields=['estado', 'fecha_actualizacion'])
+    # Los clientes únicamente pueden cancelar sus pedidos pendientes.
+    solo_pendiente = False
 
-        return Response(PedidoSerializer(pedido, context={'request': request}).data)
+    if not es_admin(request.user):
+        if nuevo != Pedido.Estado.CANCELADO:
+            return Response(
+                {'detail': 'Solo podés cancelar tus pedidos mientras están pendientes.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        solo_pendiente = True
+
+    pedido_actualizado = cambiar_estado_pedido(
+        pedido,
+        nuevo,
+        solo_pendiente=solo_pendiente,
+    )
+
+    return Response(
+        PedidoSerializer(
+            pedido_actualizado,
+            context={'request': request},
+        ).data
+    )
 
 
 class MensajeViewSet(viewsets.ModelViewSet):
@@ -85,13 +93,31 @@ class MensajeViewSet(viewsets.ModelViewSet):
             qs = qs.filter(leido=(leido == 'true'))
         return qs
 
-    def partial_update(self, request, *args, **kwargs):
-        # El admin solo puede cambiar `leido`; el contenido del mensaje no se edita.
-        mensaje = self.get_object()
-        if 'leido' in request.data:
-            mensaje.leido = str(request.data['leido']).lower() in ('true', '1')
-            mensaje.save(update_fields=['leido'])
-        return Response(self.get_serializer(mensaje).data)
+
+def partial_update(self, request, *args, **kwargs):
+    mensaje = self.get_object()
+
+    # Solo se permite modificar el campo "leido".
+    if set(request.data.keys()) != {'leido'}:
+        return Response(
+            {'detail': 'Debés enviar únicamente el campo leido.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    campo_leido = serializers.BooleanField()
+
+    try:
+        valor_leido = campo_leido.run_validation(request.data['leido'])
+    except serializers.ValidationError as error:
+        return Response(
+            {'leido': error.detail},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    mensaje.leido = valor_leido
+    mensaje.save(update_fields=['leido'])
+
+    return Response(self.get_serializer(mensaje).data)
 
     def create(self, request, *args, **kwargs):
         super().create(request, *args, **kwargs)

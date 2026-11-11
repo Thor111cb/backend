@@ -108,14 +108,6 @@ class PedidoSerializer(serializers.ModelSerializer):
 class CambiarEstadoSerializer(serializers.Serializer):
     estado = serializers.ChoiceField(choices=Pedido.Estado.choices)
 
-    def validate_estado(self, nuevo):
-        pedido = self.context['pedido']
-        if not pedido.puede_pasar_a(nuevo):
-            raise serializers.ValidationError(
-                f'No se puede pasar de {pedido.estado} a {nuevo}.'
-            )
-        return nuevo
-
 
 # ---------------------------------------------------------------- Contacto
 
