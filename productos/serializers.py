@@ -19,6 +19,10 @@ class ImagenProductoSerializer(serializers.ModelSerializer):
 class ProductoSerializer(serializers.ModelSerializer):
     colores = ColorProductoSerializer(many=True, read_only=True)
     imagenes = ImagenProductoSerializer(many=True, read_only=True)
+    categoria_nombre = serializers.CharField(
+        source="categoria.nombre",
+        read_only=True
+    )
 
     class Meta:
         model = Producto
@@ -26,6 +30,7 @@ class ProductoSerializer(serializers.ModelSerializer):
             "id",
             "nombre",
             "categoria",
+            "categoria_nombre",
             "precio",
             "descripcion",
             "stock",
